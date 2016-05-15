@@ -1,0 +1,97 @@
+---
+title: "Predicting the type of exercise from accelerometer data"
+author: "Yogesh Adhikari"
+date: "May 12, 2016"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website [here:](http://groupware.les.inf.puc-rio.br/har.)
+
+##Data
+
+###Loading the required r packages for the analysis and setting seed for reproduceability
+
+```{r}
+library(caret)
+
+set.seed(1234)
+```
+
+###Loading the data
+The training data for this project was downloaded from [here:](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+
+The test data was downloaded from [here:](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+```{r}
+if(!file.exists("training.csv")){
+    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","training.csv")
+}
+
+if(!file.exists("test.csv")){
+    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","test.csv")
+}
+
+train = read.csv("training.csv",na.strings = c("",NA))
+test = read.csv("test.csv",na.strings = c("",NA))
+
+```
+
+###Cleaning the data
+
+Removing columns with NA values train dataset. Also removing the columns that show near zero variance i.e highly correlated columns.
+
+```{r}
+train = train[,colSums(is.na(train)) == 0]
+
+correlatedColumns = nearZeroVar(train,saveMetrics = T)
+
+train = train[,correlatedColumns$nzv == FALSE]
+```
+
+Exploring the train dataset(can be seen in the appendix), we see that the first 5 columns contain name and timestamp information and are not likely to play any part in our prediction. Hence we remove them from the data.
+
+```{r}
+removeColumns = c(1,2,3,4,5)
+
+train = train[,-removeColumns]
+```
+
+##Building prediction model
+
+Since we have a fairly large training sample, we can divide the dataset into training and validating data. Dividing the data into training and validating data in the ratio of 70% to 30%
+
+```{r}
+dataDivision <- createDataPartition(y = train$classe, p=0.7, list=FALSE)
+trainingData <- train[dataDivision,]
+crossValidationData <- train[-dataDivision,]
+```
+
+###Training 
+
+Now using random forest as our prediction model and looking at its prediction error. (Due to the physical restraints of the hardware of my computer, reducing the sample size to 2000.)
+
+```{r}
+trainingData = trainingData[sample(nrow(trainingData), 2000), ]
+rf <- train(classe ~ .,method="rf",data=trainingData,verbose=F)
+
+confusionMatrix(crossValidationData$classe,predict(rf,crossValidationData))
+```
+
+We get a fairly accurate prediction from the reduced sample as well. Hence we take random forest as our prediction model to predict the test data. 
+
+```{r}
+predict(rf, test, type = "raw")
+```
+
+
+##Appendix
+
+Exploring train data
+```{r}
+head(train)
+```
+
